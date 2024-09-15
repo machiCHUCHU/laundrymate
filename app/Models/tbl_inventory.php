@@ -16,6 +16,8 @@ class tbl_inventory extends Model
 
     protected $fillable = [
         'ItemName',
+        'Category',
+        'IsUse',
         'ItemQty',
         'ItemVolume',
         'VolumeUse',

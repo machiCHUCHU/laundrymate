@@ -57,17 +57,13 @@ class authController extends Controller
         $user = Auth::user(); 
         $userContact = $user->contact;
 
-        $ownerContact = tbl_owner::where('ContactNumber', $userContact)
-                            ->value('OwnerID');
+        
         $shop = DB::table('tbl_shops')
         ->join('tbl_owners', 'tbl_shops.OwnerID', 'tbl_owners.OwnerID')
         ->join('users', 'tbl_owners.OwnerContactNumber', 'users.contact')
         ->select('*')
         ->where('tbl_owners.OwnerContactNumber', $userContact)
-        // ->where('tbl_shops.OwnerID', 'tbl_owners.OwnerID')
         ->get();
-        
-        // tbl_shop::where('OwnerID', $request['ownerid'])->get();
 
         if($shop->isEmpty()){
             return response([

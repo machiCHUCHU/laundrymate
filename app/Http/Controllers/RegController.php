@@ -160,6 +160,12 @@ class RegController extends Controller
         $ownerId = tbl_owner::where('OwnerContactNumber', $userContact)
                             ->value('OwnerID');
 
+                            $imageBase64 = $request->input('shopimage');
+
+        $image = base64_decode($imageBase64);
+        $imageName = uniqid() . '.jpg';
+        Storage::disk('public')->put('images/' . $imageName, $image);
+
         $machine = $request->validate([
             'WasherQty' => 'required|integer',
             'WasherTime' => 'required|integer',
@@ -185,6 +191,7 @@ class RegController extends Controller
 
         $shop = $request->validate([
             'ShopName' => 'required|string',
+            'ShopImage' => 'nullable',
             'ShopAddress' => 'required|string',
             'MaxLoad' => 'required|string',
             'WorkDay' => 'required|string',
@@ -212,6 +219,7 @@ class RegController extends Controller
          
          $shop = [
             'ShopName' => $request['ShopName'],
+            'ShopImage' => $imageName,
             'ShopAddress' => $request['ShopAddress'],
             'MaxLoad' => $request['MaxLoad'],
             'RemainingLoad' => $request['MaxLoad'],

@@ -35,7 +35,7 @@ class BookingUpdateCommand extends Command
     ->where('tbl_bookings.Status', '>', '0')
     ->where(DB::raw("DATE_FORMAT(tbl_bookings.Schedule, '%Y-%m-%d')"), $today)
     ->where('tbl_bookings.deleted_at', null)
-    ->select('tbl_bookings.BookingID', 'tbl_customers.ContactNumber', 'tbl_bookings.updated_at', 
+    ->select('tbl_bookings.BookingID', 'tbl_customers.CustomerContactNumber', 'tbl_bookings.updated_at', 
     'tbl_bookings.Status', 'tbl_shop_machines.WasherTime', 'tbl_shop_machines.DryerTime', 'tbl_shop_machines.FoldingTime', 
     'tbl_shops.ShopID', 'tbl_shop_machines.WasherQty', 'tbl_shop_machines.DryerQty', 'tbl_shop_machines.ShopMachineID')
     ->get();
@@ -84,7 +84,7 @@ class BookingUpdateCommand extends Command
 
                     $parameters = array(
                 'apikey' => $apiKey,
-                'number' => $booking->ContactNumber,
+                'number' => $booking->CustomerContactNumber,
                 'message' => 'Good day! This is to inform you that your laundry is ready for pickup.',
                 'sendername' => 'LAUNDRYMATE'
             );

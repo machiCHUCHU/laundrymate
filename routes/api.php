@@ -111,6 +111,7 @@ Route::get('/test/data', [testingController::class, 'test_data']);
 /*-----------------------------------------------------------------------------------*/
 Route::get('/shop-request/display', [CustomerController::class, 'added_shops_display'])->middleware('auth:sanctum');
 Route::post('/shop-request', [CustomerController::class, 'request_shops'])->middleware('auth:sanctum');
+Route::post('/shop-request/update/{addshopid}', [CustomerController::class, 'shop_unfollow'])->middleware('auth:sanctum');
 Route::post('/shop/display', [CustomerController::class, 'request_shops_display'])->middleware('auth:sanctum');
 Route::post('/laundry/status/display', [CustomerController::class, 'laundry_display'])->middleware('auth:sanctum');
 Route::get('/laundry/summary/{id}', [CustomerController::class, 'summary_display'])->middleware('auth:sanctum');
@@ -126,3 +127,4 @@ Route::get('/laundry/notifications', [CustomerController::class, 'laundry_notifi
 Route::post('/laundry/notifications/read/{notifid}', [CustomerController::class, 'laundry_notification_read'])->middleware('auth:sanctum');
 Route::get('/customer/profile', [CustomerController::class, 'customer_profile'])->middleware('auth:sanctum');
 Route::get('/customer/profile/update', [CustomerController::class, 'customer_profile'])->middleware('auth:sanctum');
+Route::put('/customer/profile/update/{id}', [CustomerController::class, 'customer_user_update'])->middleware('auth:sanctum');

@@ -1114,24 +1114,16 @@ class ownerShopController extends Controller
             'image' => 'nullable'
         ]);
 
+        $imageData = $owner['image'];
         if ($request->has('image')) {
-            $imageData = $owner['image'];
+           if(strpos($imageData, '.jpg') !== false){
+            $imageName = $owners->OwnerImage;
+           }else{
+            $image = base64_decode($imageData);
+        $imageName = uniqid() . '.jpg';
+        Storage::disk('public')->put('images/' . $imageName, $image);
+           }
             
-            // Ensure it's base64 encoded before decoding
-            if (strpos($imageData, 'base64,') !== false) {
-                $imageData = explode('base64,', $imageData)[1];
-            }
-    
-            $decodedImage = base64_decode($imageData, true);
-    
-            if ($decodedImage === false) {
-                return response([
-                    'message' => 'Invalid image data'
-                ], 422);
-            }
-    
-            $imageName = time() . '.jpg';
-            Storage::disk('public')->put('images/' . $imageName, $decodedImage);
         } else {
             $imageName = $owners->OwnerImage; // Keep the existing image if no new image is provided
         }

@@ -14,6 +14,7 @@ class tbl_shop extends Model
 
     protected $fillable = [
         'ShopName',
+        'ShopImage',
         'ShopAddress',
         'MaxLoad',
         'RemainingLoad',

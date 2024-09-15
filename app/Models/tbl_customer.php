@@ -10,6 +10,8 @@ class tbl_customer extends Model
     use HasFactory;
 
     public $timestamps = false;
+
+    protected $primaryKey = 'CustomerID';
     protected $fillable = [
         'CustomerName',
         'CustomerSex',

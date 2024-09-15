@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use App\Models\tbl_customer;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use App\Models\User;
 use PHPUnit\Framework\Constraint\IsEmpty;
@@ -71,6 +72,18 @@ class CustomerController extends Controller
               
         }
 
+   }
+
+   public function shop_unfollow($addshopid){
+    $addedShop = tbl_added_shop::find($addshopid);
+
+    $addedShop->update([
+        'IsValued' => '4'
+    ]);
+
+    return response([
+        'message' => 'You\'ve unfollowed the shop' 
+    ]);
    }
 
    public function request_shops_display(Request $request){
@@ -217,7 +230,7 @@ class CustomerController extends Controller
    public function laundry_completion($bookId){
     $book = tbl_booking::find($bookId);
     $notif = tbl_notif::where('BookingID', $bookId)->first();
-    $paymentStat = $book->PaymentStatus;
+    $paymentStat = tbl_booking::where('BookingID', $bookId)->value('PaymentStatus');
 
     $shopName = DB::table('tbl_bookings')
     ->join('tbl_shops', 'tbl_bookings.ShopID', 'tbl_shops.ShopID')
@@ -235,11 +248,11 @@ class CustomerController extends Controller
                 'Status' => '5',
             ]);
 
-            $notif->update([
-                'Title' => 'Laundry Service Completed',
-                'Message' => 'Your Laundry Service from '.$shopName.'is Completed.',
-                'is_read' => '0'
-            ]);
+            // $notif->update([
+            //     'Title' => 'Laundry Service Completed',
+            //     'Message' => 'Your Laundry Service from '.$shopName.'is Completed.',
+            //     'is_read' => '0'
+            // ]);
     
             return response([
                 'message' => 'Service Completed'
@@ -250,11 +263,11 @@ class CustomerController extends Controller
                 'PaymentStatus' => 'paid'
             ]);
 
-            tbl_notif::update([
-                'Title' => 'Laundry Service Completed',
-                'Message' => 'Your Laundry Service from '.$shopName.'is Completed.',
-                'is_read' => '0'
-            ]);
+            // tbl_notif::update([
+            //     'Title' => 'Laundry Service Completed',
+            //     'Message' => 'Your Laundry Service from '.$shopName.'is Completed.',
+            //     'is_read' => '0'
+            // ]);
     
             return response([
                 'message' => 'Service Completed'
@@ -405,4 +418,106 @@ class CustomerController extends Controller
         'CustomerImage' => $request['customerimage']
     ]);
    }
+
+   public function owner_user_update(Request $request, $id){
+    $user = Auth::user(); 
+    $userId = $user->id;
+
+    $customers = tbl_customer::find($id);
+
+    $user = User::find($userId);
+
+    if(!$customers){
+        return response([
+            'message' => 'User not found'
+        ],403);
+    }
+
+    $owner = $request->validate([
+        'name' => 'required',
+        'sex' => 'required',
+        'address' => 'required',
+        'image' => 'nullable'
+    ]);
+
+    $imageData = $owner['image'];
+    if ($request->has('image')) {
+       if(strpos($imageData, '.jpg') !== false){
+        $imageName = $customers->CustomerImage;
+       }else{
+        $image = base64_decode($imageData);
+    $imageName = uniqid() . '.jpg';
+    Storage::disk('public')->put('images/' . $imageName, $image);
+       }
+        
+    } else {
+        $imageName = $customers->OwnerImage; // Keep the existing image if no new image is provided
+    }
+
+    $customers->update([
+        'CustomerName' => $owner['name'],
+        'CustomerSex' => $owner['sex'],
+        'CustomerAddress' => $owner['address'],
+        'CustomerImage' => $imageName
+    ]);
+
+    $user->update([
+        'contact' => $request['contact']
+    ]);
+
+    return response([
+        'response' => 'success'
+    ], 200);
+}
+
+public function customer_user_update(Request $request, $id){
+        $user = Auth::user(); 
+        $userId = $user->id;
+
+        $owners = tbl_customer::find($id);
+
+        $user = User::find($userId);
+
+        if(!$owners){
+            return response([
+                'message' => 'User not found'
+            ],403);
+        }
+
+        $owner = $request->validate([
+            'name' => 'sometimes|required',
+            'sex' => 'sometimes|required',
+            'address' => 'sometimes|required',
+            'image' => 'sometimes|nullable'
+        ]);
+
+        $imageData = $owner['image'];
+        if ($request->has('image')) {
+           if(strpos($imageData, '.jpg') !== false){
+            $imageName = $owners->CustomerImage;
+           }else{
+            $image = base64_decode($imageData);
+        $imageName = uniqid() . '.jpg';
+        Storage::disk('public')->put('images/' . $imageName, $image);
+           }
+            
+        } else {
+            $imageName = $owners->CustomerImage; // Keep the existing image if no new image is provided
+        }
+
+        $owners->update([
+            'CustomerName' => $owner['name'],
+            'CustomerSex' => $owner['sex'],
+            'CustomerAddress' => $owner['address'],
+            'CustomerImage' => $imageName
+        ]);
+
+        $user->update([
+            'contact' => $request['contact']
+        ]);
+
+        return response([
+            'message' => 'success'
+        ], 200);
+    }
 }
