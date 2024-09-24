@@ -37,11 +37,7 @@ class ShopUpdateCommand extends Command
             $startTime = Carbon::createFromFormat("h:i A", $startTimeString);
             $endTime = Carbon::createFromFormat("h:i A", $endTimeString);
         
-            $formattedShopData[] = [
-                'shop_id' => $shop->ShopID,
-                'start_time' => $startTime->format('h:i A'),
-                'end_time' => $endTime->format('h:i A'),
-            ];
+            
 
             $currentTime = Carbon::now()->format('h:i A');
 
@@ -50,6 +46,15 @@ class ShopUpdateCommand extends Command
                     'ShopStatus' => 'open'
                 ]);
 
+                $shop->update([
+                    'RemainingLoad' => $shop->MaxLoad
+                ]);
+            }
+
+            if($currentTime == $endTime->format('h:i A')){
+                $shop->update([
+                    'ShopStatus' => 'closed'
+                ]);
             }
            
         }

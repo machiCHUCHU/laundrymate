@@ -16,6 +16,7 @@ use App\Http\Controllers\ShopController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\RatingController;
 use App\Http\Controllers\ShopServiceController;
+use App\Http\Controllers\validationController;
 
 // Route::post('/register/customer', [RegController::class, 'customer_register']); //SECOND CHECKED!!
 // Route::post('/register/owner', [RegController::class, 'owner_register']); //SECOND CHECKED!!
@@ -32,7 +33,7 @@ Route::get('/shop-inventory', [ownerShopController::class, 'inventory_display'])
 
 Route::post('shop-inventory/delete/{id}', [ownerShopController::class, 'inventory_delete'])->middleware('auth:sanctum'); //SECOND CHECKED!!
 
-Route::put('/shop-inventory/update/{id}', [ownerShopController::class, 'inventory_edit']); //SECOND CHECKED!!
+Route::put('/shop-inventory/update/{id}', [ownerShopController::class, 'inventory_edit'])->middleware('auth:sanctum'); //SECOND CHECKED!!
 Route::get('/profile/{id}', [ownerShopController::class, 'profile_display']); //INITIAL CHECKED!!
  //SECOND CHECKED!!
 
@@ -88,12 +89,16 @@ Route::put('/payment/update/{id}', [ownerShopController::class, 'payment_update'
 Route::put('/complete/update/{id}', [ownerShopController::class, 'complete_update'])->middleware('auth:sanctum');
 Route::put('/shop/update', [ownerShopController::class, 'shop_info_update'])->middleware('auth:sanctum');
 
+
+Route::post('/check/number', [validationController::class, 'is_number_exist']);
+
+
 //TESTING ROUTES--------------------------------------------------------------------------------------------
 Route::post('/picture', [testingController::class, 'picture']);
 Route::get('/images/{id}', [testingController::class, 'getImage']);
 Route::post('/sms', [testingController::class, 'send_sms']);
 
-Route::get('/test/data', [testingController::class, 'test_data']);
+Route::get('/test/data', [testingController::class, 'test_data'])->middleware('auth:sanctum');
 
 
 

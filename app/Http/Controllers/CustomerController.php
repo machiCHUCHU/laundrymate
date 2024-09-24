@@ -25,9 +25,8 @@ class CustomerController extends Controller
         $customerId = tbl_customer::where('CustomerContactNumber', $userContact)
         ->value('CustomerID');
 
-        $added_shops = DB::table('tbl_added_shops')
-        ->join('tbl_shops', 'tbl_added_shops.ShopID', 'tbl_shops.ShopID')
-        ->where('CustomerID', $customerId)
+        $added_shops = DB::table('tbl_shops')
+        
         ->get();
 
         return response([
@@ -45,7 +44,9 @@ class CustomerController extends Controller
         $shopId = tbl_shop::where('ShopCode', $request['code'])
         ->value('ShopID');
 
-        $addShop = tbl_added_shop::find($shopId);
+        $addShop = tbl_added_shop::where('ShopID', $shopId)
+        ->where('CustomerID', $customerId)
+        ->first();
 
         $dateToday = Carbon::now()->toDateString();
 
@@ -93,9 +94,8 @@ class CustomerController extends Controller
         $customerId = tbl_customer::where('CustomerContactNumber', $userContact)
         ->value('CustomerID');
 
-        $shopInfo = DB::table('tbl_added_shops')
-        ->join('tbl_shops', 'tbl_added_shops.ShopID', 'tbl_shops.ShopID')
-        ->where('tbl_added_shops.ShopID', $request['shopid'])
+        $shopInfo = DB::table('tbl_shops')
+        ->where('tbl_shops.ShopID', $request['shopid'])
         ->get();
 
         $laundryService = tbl_laundry_service::where('ShopID', $request['shopid'])
@@ -132,7 +132,7 @@ class CustomerController extends Controller
             'ratings'=> $ratings,
             'rateSum'=> (int)$ratingSum,
             'rateCount'=> $ratingCount,
-            'message' => $message
+            'message' => $isValued,
         ]);
    }
 
@@ -150,6 +150,7 @@ class CustomerController extends Controller
     ->join('tbl_customers', 'tbl_bookings.CustomerID', 'tbl_customers.CustomerID')
     ->select('tbl_shops.*', 'tbl_bookings.*', 'tbl_laundry_services.*', 'tbl_customers.*', DB::raw("DATE_FORMAT(Schedule, '%Y-%m-%d') as Schedule"))
     ->where('tbl_bookings.CustomerID', $customerId)
+    ->orderBy('tbl_bookings.BookingID', 'desc')
     ->get();
     }elseif($request['nav'] == '1'){
         $bookings = DB::table('tbl_bookings')
@@ -159,6 +160,7 @@ class CustomerController extends Controller
     ->select('tbl_shops.*', 'tbl_bookings.*', 'tbl_laundry_services.*', 'tbl_customers.*', DB::raw("DATE_FORMAT(Schedule, '%Y-%m-%d') as Schedule"))
     ->where('tbl_bookings.CustomerID', $customerId)
     ->where('tbl_bookings.Status', '4')
+    ->orderBy('tbl_bookings.BookingID', 'desc')
     ->get();
     }elseif($request['nav'] == '2'){
         $bookings = DB::table('tbl_bookings')
@@ -167,8 +169,8 @@ class CustomerController extends Controller
     ->join('tbl_customers', 'tbl_bookings.CustomerID', 'tbl_customers.CustomerID')
     ->select('tbl_shops.*', 'tbl_bookings.*', 'tbl_laundry_services.*', 'tbl_customers.*', DB::raw("DATE_FORMAT(Schedule, '%Y-%m-%d') as Schedule"))
     ->where('tbl_bookings.CustomerID', $customerId)
-    ->where('tbl_bookings.Status', '5')
-    ->orWhere('tbl_bookings.Status', '6')
+    ->whereIn('tbl_bookings.Status', ['5', '6'])
+    ->orderBy('tbl_bookings.BookingID', 'desc')
     ->get();
     }else{
         $bookings = DB::table('tbl_bookings')
@@ -178,6 +180,7 @@ class CustomerController extends Controller
     ->select('tbl_shops.*', 'tbl_bookings.*', 'tbl_laundry_services.*', 'tbl_customers.*', DB::raw("DATE_FORMAT(Schedule, '%Y-%m-%d') as Schedule"))
     ->where('tbl_bookings.CustomerID', $customerId)
     ->whereNot('tbl_bookings.deleted_at', null)
+    ->orderBy('tbl_bookings.BookingID', 'desc')
     ->get();
     }
 
@@ -248,11 +251,11 @@ class CustomerController extends Controller
                 'Status' => '5',
             ]);
 
-            // $notif->update([
-            //     'Title' => 'Laundry Service Completed',
-            //     'Message' => 'Your Laundry Service from '.$shopName.'is Completed.',
-            //     'is_read' => '0'
-            // ]);
+            $notif->update([
+                'Title' => 'Laundry Service Completed',
+                'Message' => 'Your Laundry Service from '.$shopName.'is Completed.',
+                'is_read' => '0'
+            ]);
     
             return response([
                 'message' => 'Service Completed'
@@ -263,11 +266,11 @@ class CustomerController extends Controller
                 'PaymentStatus' => 'paid'
             ]);
 
-            // tbl_notif::update([
-            //     'Title' => 'Laundry Service Completed',
-            //     'Message' => 'Your Laundry Service from '.$shopName.'is Completed.',
-            //     'is_read' => '0'
-            // ]);
+            tbl_notif::update([
+                'Title' => 'Laundry Service Completed',
+                'Message' => 'Your Laundry Service from '.$shopName.'is Completed.',
+                'is_read' => '0'
+            ]);
     
             return response([
                 'message' => 'Service Completed'
@@ -339,21 +342,45 @@ class CustomerController extends Controller
     $customerId = tbl_customer::where('CustomerContactNumber', $userContact)
     ->value('CustomerID');
 
+    $shop = DB::table('tbl_shops')
+    ->select('MaxLoad')
+    ->where('ShopID', $request['shopid'])
+    ->first();
+
+    $bookingCount = tbl_booking::where('ShopID', $request['shopid'])
+                    ->whereDate('Schedule', $request['sched'])
+                    ->count();
+
     $dateToday = Carbon::now()->toDateString();
 
-    tbl_booking::insert([
-        'CustomerLoad' => $request['load'],
-        'LoadCost' => $request['cost'],
-        'Schedule' => $request['sched'],
-        'DateIssued' => $dateToday,
-        'CustomerID' => $customerId,
-        'ShopID' => $request['shopid'],
-        'ServiceID' => $request['serviceid']
-    ]);
+    
 
-    return response([
-        'message' => 'Service request has been sent' 
-    ]);
+    if($shop->MaxLoad == $bookingCount){
+        return response([
+            'message' => 'The selected date is fully booked. Please choose another date.',
+        ],409);
+    }else{
+        tbl_booking::insert([
+            'CustomerLoad' => $request['load'],
+            'LoadCost' => $request['cost'],
+            'Schedule' => $request['sched'],
+            'DateIssued' => $dateToday,
+            'CustomerID' => $customerId,
+            'ShopID' => $request['shopid'],
+            'ServiceID' => $request['serviceid']
+        ]);
+
+        if($request['sched'] == $dateToday){
+            tbl_shop::where('ShopID', $request['shopid'])->decrement('RemainingLoad');
+        }
+    
+        return response([
+            'message' => 'Service request has been sent' 
+        ]);
+    }
+
+
+   
    }
 
    public function laundry_notification(){
@@ -367,7 +394,7 @@ class CustomerController extends Controller
     ->value('BookingID');
 
     $notif = tbl_notif::where('CustomerID', $customerId)
-    ->where('BookingID', $bookingId)
+    
     ->get();
 
     return response([
@@ -517,7 +544,7 @@ public function customer_user_update(Request $request, $id){
         ]);
 
         return response([
-            'message' => 'success'
+            'message' => 'Profile has been updated'
         ], 200);
     }
 }

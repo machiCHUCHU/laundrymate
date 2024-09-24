@@ -160,7 +160,8 @@ class RegController extends Controller
         $ownerId = tbl_owner::where('OwnerContactNumber', $userContact)
                             ->value('OwnerID');
 
-                            $imageBase64 = $request->input('shopimage');
+                            $imageBase64 = $request['ShopImage'];
+
 
         $image = base64_decode($imageBase64);
         $imageName = uniqid() . '.jpg';
@@ -279,15 +280,19 @@ class RegController extends Controller
             'ItemName' => 'required|string',
             'ItemQty' => 'required|integer',
             'itemVolume' => 'required|integer',
-            'volumeuse' => 'required|integer'
+            'volumeuse' => 'required|integer',
+            'category' => 'required|string',
+            'isuse' => 'sometimes'
         ]);
 
         tbl_inventory::create([
             'ItemName' => $inv['ItemName'],
             'ItemQty' => $inv['ItemQty'],
             'ItemVolume' => $inv['itemVolume'],
-            'RemainingVolume' => $inv['itemVolume'],
+            'RemainingVolume' => '0',
             'VolumeUse' => $inv['volumeuse'],
+            'Category' => $inv['category'],
+            'IsUse' => $inv['isuse'],
             'ShopID' => $shopId
         ]);
 

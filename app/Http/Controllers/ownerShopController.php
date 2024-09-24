@@ -16,6 +16,7 @@ use App\Models\tbl_walkin;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -91,9 +92,6 @@ class ownerShopController extends Controller
 
         $inventory = DB::table('tbl_inventories')
         ->join('tbl_shops', 'tbl_inventories.ShopID', '=', 'tbl_shops.ShopID')
-        ->select('tbl_inventories.ItemName', 'tbl_inventories.ItemQty', 
-        'tbl_inventories.RemainingVolume', 'tbl_inventories.InventoryID',
-        'tbl_inventories.VolumeUse', 'tbl_inventories.ItemVolume')
         ->where('tbl_inventories.ShopID', $shopId)
         ->whereNull('tbl_inventories.deleted_at')
         ->orderBy('tbl_inventories.ItemQty', 'desc')
@@ -142,14 +140,18 @@ class ownerShopController extends Controller
             'ItemName' => 'required|string',
             'ItemQty' => 'required|integer',
             'itemVolume' => 'required|integer',
-            'volumeuse' => 'required|integer'
+            'volumeuse' => 'required|integer',
+            'category' => 'string',
+            'isuse' => 'sometimes'
         ]);
 
         $inventory->update([
             'ItemName' => $inv['ItemName'],
             'ItemQty' => $inv['ItemQty'],
             'ItemVolume' => $inv['itemVolume'],
-            'VolumeUse' => $inv['volumeuse']
+            'VolumeUse' => $inv['volumeuse'],
+            'Category' => $inv['category'],
+            'IsUse' => $inv['isuse']
         ]);
 
         return response([
@@ -926,18 +928,18 @@ class ownerShopController extends Controller
         $shopId = tbl_shop::where('OwnerID', $ownerId)
                           ->pluck('ShopID');
 
-        $now = Carbon::today()->format('Y-m-d');
+        $now = Carbon::today();
 
         $revenueBook = DB::table('tbl_bookings')
         ->where('ShopID', $shopId)
+        ->where('Schedule', $now)
         ->where('PaymentStatus', 'paid')
-        ->where(DB::raw("DATE_FORMAT(Schedule, '%Y-%m-%d')"), $now)
         ->sum('LoadCost');
 
         $revenueWalk = DB::table('tbl_walkins')
         ->where('ShopID', $shopId)
+        ->where(DB::raw('DATE(DateIssued)'), $now)
         ->where('PaymentStatus', 'paid')
-        ->where(DB::raw("DATE_FORMAT(DateIssued, '%Y-%m-%d')"), $now)
         ->sum('Total');
         
 
@@ -1011,16 +1013,16 @@ class ownerShopController extends Controller
 
         $completeBook = DB::table('tbl_bookings')
         ->selectRaw('DATE(Schedule) as date')
-        ->where('ShopID', $shopId)
         ->whereDate('Schedule', $now)
-        ->where('Status', '5')
+        ->where('ShopID', $shopId)
+        ->where('Status', ['5', '6'])
         ->count();
 
         $completeWalk = DB::table('tbl_walkins')
         ->selectRaw('DATE(DateIssued) as date')
-        ->where('ShopID', $shopId)
         ->whereDate('DateIssued', $now)
-        ->where('Status', '5')
+        ->where('ShopID', $shopId)
+        ->where('Status', ['5', '6'])
         ->count();
 
         $revenue = $revenueBook + $revenueWalk;
@@ -1058,9 +1060,9 @@ class ownerShopController extends Controller
         ->where('ShopID', $shopId)
         ->value('ShopName');
 
-        $image = DB::table('tbl_owners')
-        ->where('OwnerID', $ownerId)
-        ->value('OwnerImage');
+        $image = DB::table('tbl_shops')
+        ->where('ShopID', $shopId)
+        ->value('ShopImage');
 
 
         return response([
@@ -1211,7 +1213,7 @@ class ownerShopController extends Controller
             'WalkinLoad' => $request['load'],
             'DateIssued' => $dateTime,
             'ServiceID' => $request['service'],
-            'Total' => $request['load'] * $total,
+            'Total' => $request['total'],
             'ShopID' => $shopId
         ];
 
@@ -1254,56 +1256,127 @@ class ownerShopController extends Controller
         ]);
     }
 
-    public function walkin_status(Request $request, $id){
-        $user = Auth::user(); 
-        $userContact = $user->contact;
+    public function walkin_status(Request $request, $id)
+{
+    $user = Auth::user(); 
+    $userContact = $user->contact;
 
-        $ownerId = tbl_owner::where('OwnerContactNumber', $userContact)
-                            ->pluck('OwnerID');
+    $ownerId = tbl_owner::where('OwnerContactNumber', $userContact)
+                        ->pluck('OwnerID');
 
-        $shopId = tbl_shop::where('OwnerID', $ownerId)
-                          ->value('ShopID');
+    $shopId = tbl_shop::where('OwnerID', $ownerId)
+                      ->value('ShopID');
 
-        $machineId = tbl_shop::where('ShopID', $shopId)
+    $machineId = tbl_shop::where('ShopID', $shopId)
         ->value('ShopMachineID');                  
-        
-        $washer = tbl_shop_machine::where('ShopMachineID', $machineId);
-        $washerQty = $washer->value('WasherQty');
+    
+    $washer = tbl_shop_machine::where('ShopMachineID', $machineId);
+    $washerQty = $washer->value('WasherQty');
 
-        $walkin = tbl_walkin::find($id);
-        $shop = tbl_shop::where('ShopID', $shopId);
-        $todayBooks = $shop->value('RemainingLoad');
+    $inv = tbl_inventory::where('ShopID', $shopId)->get();
 
-        if(!$walkin){
+    if($inv->isEmpty()){
+        return response([
+            'message' => 'No Inventory setup yet'
+        ], 409);
+    }
+
+
+    
+    if ($washerQty == 0) {
+        return response(['message' => 'All washing machines are currently occupied'],409);
+    }
+
+    $inventories = DB::table('tbl_inventories')
+        ->where('IsUse', '1')
+        ->where('ShopID', $shopId)
+        ->where('deleted_at', null)
+        ->get();
+
+        if ($inventories->isEmpty()) {
+            
             return response([
-                'message'=> 'not found'
-            ]);
+                'message' => 'No inventory set to use.'
+            ], 409);
         }
 
-        if($washerQty == '0'){
-            return response([
-                'message' => 'Washing Machines are currently occupied'
-            ]);
-        }else{
-            if($request['stat'] == '1'){
-                $washer->decrement('WasherQty');
-                $walkin->update([
-                    'Status' => '1'
-                ]);
-                return response([
-                    'message' => 'Request has been accepted'
-                ]);
-            }else{
-                $walkin->delete();
-                $shop->increment('RemainingLoad');
-                return response([
-                    'message' => 'Request has been canceled'
-                ]);
+    $walkin = tbl_walkin::find($id);
+
+    if (!$walkin) {
+        return response(['message' => 'Walk-in not found']);
+    }
+
+    // Validation: First pass to check if all items are sufficient
+    foreach ($inventories as $inventory) {
+        $itemName = $inventory->ItemName;
+        $volumeUse = $inventory->VolumeUse;
+        $remainingVolume = $inventory->RemainingVolume;
+        $itemQty = $inventory->ItemQty;
+
+        Log::info("Validating item: $itemName, Qty: $itemQty, RemainingVolume: $remainingVolume, VolumeUse: $volumeUse");
+
+        
+        if ($itemQty > 0 && $remainingVolume < $volumeUse) {
+            
+            DB::table('tbl_inventories')
+                ->where('InventoryID', $inventory->InventoryID)
+                ->decrement('ItemQty');
+
+            
+            DB::table('tbl_inventories')
+                ->where('InventoryID', $inventory->InventoryID)
+                ->increment('RemainingVolume', $inventory->ItemVolume);
+
+            
+            $remainingVolume = $remainingVolume + $inventory->ItemVolume;
+
+            DB::table('tbl_inventories')
+                ->where('InventoryID', $inventory->InventoryID)
+                ->decrement('RemainingVolume', $inventory->VolumeUse);
+        }
+
+        
+        
+        if ($remainingVolume < $volumeUse) {
+            return response(['message' => "$itemName still has insufficient volume for the laundry request."], 409);
+        }
+    }
+
+    
+    foreach ($inventories as $inventory) {
+        $itemName = $inventory->ItemName;
+        $volumeUse = $inventory->VolumeUse;
+        $itemVolume = $inventory->ItemVolume;
+        $remainingVolume = $inventory->RemainingVolume;
+        $inventoryId = $inventory->InventoryID;
+
+        Log::info("Processing item: $itemName, Qty: $itemQty, RemainingVolume: $remainingVolume, VolumeUse: $volumeUse");
+
+        if ($request['stat'] == '1') {
+            if ($remainingVolume >= $volumeUse) {
+               
+                DB::table('tbl_inventories')
+                    ->where('InventoryID', $inventoryId)
+                    ->decrement('RemainingVolume', $volumeUse);
+
+                $walkin->update(['Status' => '1']);
             }
         }
-
-        
     }
+
+    
+    $washer->decrement('WasherQty');
+
+    
+    return response(['message' => 'Laundry request has been accepted']);
+}
+
+
+
+
+    
+
+
 
     public function report_display(Request $request){
         $user = Auth::user(); 
@@ -1318,48 +1391,46 @@ class ownerShopController extends Controller
                           
 
         if($request['type'] == 'Booked' || empty($request['type'])){
-                if(empty($request['start']) && empty($request['end']) && empty($request['stat'])){
+                if(empty($request['start']) && empty($request['end']) && empty($request['service'])){
                     $response = DB::table('tbl_bookings')
-            ->join('tbl_customers', 'tbl_bookings.CustomerID', 'tbl_customers.CustomerID')
-            ->join('tbl_laundry_services', 'tbl_bookings.ServiceID', 'tbl_laundry_services.ServiceID')
-            ->select('tbl_bookings.*', 'tbl_customers.*', 'tbl_laundry_services.*', DB::raw("DATE_FORMAT(tbl_bookings.Schedule, '%Y-%m-%d') as Schedule"))
-            ->where('tbl_bookings.ShopID', $shopId)
-            ->orderBy('tbl_bookings.Schedule', 'desc')
-            ->get();
-                }
-                else if(!empty($request['stat'])){
+                    ->join('tbl_laundry_services', 'tbl_bookings.ServiceID', 'tbl_laundry_services.ServiceID')
+                    ->select('tbl_bookings.*', 'tbl_laundry_services.*', DB::raw("DATE_FORMAT(tbl_bookings.Schedule, '%Y-%m-%d') as DateIssued"))
+                    ->where('tbl_bookings.ShopID', $shopId)
+                    ->where('tbl_bookings.deleted_at', null)
+                    ->orderBy('tbl_bookings.Schedule', 'desc')
+                    ->get();
+                }else if(!empty($request['service']) && empty($request['start']) && empty($request['end'])){
                     $response = DB::table('tbl_bookings')
-            ->join('tbl_customers', 'tbl_bookings.CustomerID', 'tbl_customers.CustomerID')
-            ->join('tbl_laundry_services', 'tbl_bookings.ServiceID', 'tbl_laundry_services.ServiceID')
-            ->select('tbl_bookings.*', 'tbl_customers.*', 'tbl_laundry_services.*', 
-            DB::raw("DATE_FORMAT(tbl_bookings.Schedule, '%Y-%m-%d')"))
-            ->where('tbl_bookings.Status', $request['stat'])
-            ->where('tbl_bookings.ShopID', $shopId)
-            ->orderBy('tbl_bookings.Schedule', 'desc')
-            ->get();
+                    ->join('tbl_laundry_services', 'tbl_bookings.ServiceID', 'tbl_laundry_services.ServiceID')
+                    ->select('tbl_bookings.*', 'tbl_laundry_services.*', DB::raw("DATE_FORMAT(tbl_bookings.Schedule, '%Y-%m-%d') as DateIssued"))
+                    ->where('tbl_laundry_services.ServiceName', $request['service'])
+                    ->where('tbl_bookings.ShopID', $shopId)
+                    ->where('tbl_bookings.deleted_at', null)
+                    ->orderBy('tbl_bookings.Schedule', 'desc')
+                    ->get();
                 }else if(!empty($request['start']) && !empty($request['end'])){
                     $response = DB::table('tbl_bookings')
-                        ->join('tbl_customers', 'tbl_bookings.CustomerID', 'tbl_customers.CustomerID')
-                        ->join('tbl_laundry_services', 'tbl_bookings.ServiceID', 'tbl_laundry_services.ServiceID')
-                        ->select('tbl_bookings.*', 'tbl_customers.*', 'tbl_laundry_services.*', DB::raw("DATE_FORMAT(tbl_bookings.Schedule, '%Y-%m-%d') as Schedule"))
-                        ->whereBetween(DB::raw('DATE(tbl_bookings.Schedule)'), [$request['start'], $request['end']])
-                        ->where('tbl_bookings.ShopID', $shopId)
-                        ->orderBy('tbl_bookings.Schedule', 'desc')
-                        ->get();
-                }else{
+                    ->join('tbl_laundry_services', 'tbl_bookings.ServiceID', 'tbl_laundry_services.ServiceID')
+                    ->select('tbl_bookings.*', 'tbl_laundry_services.*', DB::raw("DATE_FORMAT(tbl_bookings.Schedule, '%Y-%m-%d') as DateIssued"))
+                    ->whereBetween(DB::raw('DATE(tbl_bookings.Schedule)'), [$request['start'], $request['end']])
+                    ->where('tbl_bookings.ShopID', $shopId)
+                    ->where('tbl_bookings.deleted_at', null)
+                    ->orderBy('tbl_bookings.Schedule', 'desc')
+                    ->get();
+                }else if(!empty($request['start']) && !empty($request['end']) && !empty($request['service'])){
                     $response = DB::table('tbl_bookings')
-                        ->join('tbl_customers', 'tbl_bookings.CustomerID', 'tbl_customers.CustomerID')
-                        ->join('tbl_laundry_services', 'tbl_bookings.ServiceID', 'tbl_laundry_services.ServiceID')
-                        ->select('tbl_bookings.*', 'tbl_customers.*', 'tbl_laundry_services.*', DB::raw("DATE_FORMAT(tbl_bookings.Schedule, '%Y-%m-%d') as Schedule"))
-                        ->whereBetween(DB::raw('DATE(tbl_bookings.Schedule)'), [$request['start'], $request['end']])
-                        ->where('tbl_bookings.Status', $request['stat'])
-                        ->where('tbl_bookings.ShopID', $shopId)
-                        ->orderBy('tbl_bookings.Schedule', 'desc')
-                        ->get();
+                    ->join('tbl_laundry_services', 'tbl_bookings.ServiceID', 'tbl_laundry_services.ServiceID')
+                    ->select('tbl_bookings.*', 'tbl_laundry_services.*', DB::raw("DATE_FORMAT(tbl_bookings.Schedule, '%Y-%m-%d') as DateIssued"))
+                    ->whereBetween(DB::raw('DATE(tbl_bookings.Schedule)'), [$request['start'], $request['end']])
+                    ->where('tbl_laundry_services.ServiceName', $request['service'])
+                    ->where('tbl_bookings.ShopID', $shopId)
+                    ->where('tbl_bookings.deleted_at', null)
+                    ->orderBy('tbl_bookings.Schedule', 'desc')
+                    ->get();
                 }
 
         }else if($request['type'] == 'Walkin'){
-            if(empty($request['start']) && empty($request['end']) && empty($request['stat'])){
+            if(empty($request['start']) && empty($request['end']) && empty($request['service'])){
                 $response = DB::table('tbl_walkins')
             ->join('tbl_laundry_services', 'tbl_walkins.ServiceID', 'tbl_laundry_services.ServiceID')
             ->select('tbl_walkins.*', 'tbl_laundry_services.*', DB::raw("DATE_FORMAT(tbl_walkins.DateIssued, '%Y-%m-%d') as DateIssued"))
@@ -1368,12 +1439,12 @@ class ownerShopController extends Controller
             ->orderBy('tbl_walkins.DateIssued', 'desc')
             ->get();
             }
-            else if(!empty($request['stat'])){
+            else if(!empty($request['service']) && empty($request['start']) && empty($request['end'])){
                 $response = DB::table('tbl_walkins')
             ->join('tbl_laundry_services', 'tbl_walkins.ServiceID', 'tbl_laundry_services.ServiceID')
             ->select('tbl_walkins.*', 'tbl_laundry_services.*', DB::raw("DATE_FORMAT(tbl_walkins.DateIssued, '%Y-%m-%d') as DateIssued"))
             ->where('tbl_walkins.ShopID', $shopId)
-            ->where('tbl_walkins.Status', $request['stat'])
+            ->where('tbl_laundry_services.ServiceName', $request['service'])
             ->where('tbl_walkins.deleted_at', null)
             ->orderBy('tbl_walkins.DateIssued', 'desc')
             ->get();
@@ -1386,12 +1457,13 @@ class ownerShopController extends Controller
             ->where('tbl_walkins.deleted_at', null)
             ->orderBy('tbl_walkins.DateIssued', 'desc')
             ->get();
-            }else{
+            }else if(!empty($request['start']) && !empty($request['end']) && !empty($request['service'])){
                 $response = DB::table('tbl_walkins')
             ->join('tbl_laundry_services', 'tbl_walkins.ServiceID', 'tbl_laundry_services.ServiceID')
             ->select('tbl_walkins.*', 'tbl_laundry_services.*', DB::raw("DATE_FORMAT(tbl_walkins.DateIssued, '%Y-%m-%d') as DateIssued"))
             ->whereBetween(DB::raw('DATE(tbl_walkins.DateIssued)'), [$request['start'], $request['end']])
-            ->where('tbl_wakins.Status', $request['stat'])
+            ->whereBetween(DB::raw('DATE(tbl_walkins.DateIssued)'), [$request['start'], $request['end']])
+            ->where('tbl_laundry_services.ServiceName', $request['service'])
             ->where('tbl_walkins.ShopID', $shopId)
             ->where('tbl_walkins.deleted_at', null)
             ->orderBy('tbl_walkins.DateIssued', 'desc')
@@ -1402,19 +1474,26 @@ class ownerShopController extends Controller
         }
 
         $bookRev = tbl_booking::where('ShopID', $shopId)
-        ->where('PaymentStatus','paid')
-        ->sum('LoadCost');
+        ->count();
+
+        $bookLoad = tbl_booking::where('ShopID', $shopId)
+        ->sum('CustomerLoad');
+
+        $walkLoad = tbl_walkin::where('ShopID', $shopId)
+        ->sum('WalkinLoad');
 
         $walkRev = tbl_walkin::where('ShopID', $shopId)
-        ->where('PaymentStatus', 'paid')
-        ->sum('Total');
+        ->count();
 
-        $accuRev = $bookRev + $walkRev;
+        $serviceCount = $bookRev + $walkRev;
+
+        $serviceLoad = $bookLoad + $walkLoad;
 
 
         return response([
             'data' => $response,
-            'revenue' => $accuRev
+            'servicecount' => $serviceCount,
+            'loadcount' => $serviceLoad
         ], 200);
     }
 
@@ -1436,17 +1515,40 @@ class ownerShopController extends Controller
         $shopId = tbl_shop::where('OwnerID', $ownerId)
                           ->value('ShopID');
 
-        $item = tbl_inventory::where('InventoryID', $request['item']);
-        $itemName = $item->value('ItemName');
-        $itemQty = $item->value('ItemQty');
-        $itemVol = $item->value('ItemVolume');
-        $remVol = $item->value('RemainingVolume');
-        $volUse = $item->value('VolumeUse');
+        $shop = tbl_shop::where('OwnerID', $ownerId)
+        ->first();
+
+        $bookingCount = tbl_booking::where('ShopID', $shopId)
+        ->where('deleted_at', null)
+        ->whereDate('Schedule', $request['sched'])
+        ->count();
+
+        $dateToday = Carbon::now();
+
+        
+
+        if($shop->MaxLoad == $bookingCount){
+            return response([
+                'message' => 'The selected date is fully booked. Please select another date.'
+            ], 409);
+        }
+
+       
+        if($request['sched'] == $dateToday->toDateString()){
+            if($shop->RemainingLoad == 0){
+                return response([
+                    'message' => 'Slots are filled for today.'
+                ],409);
+            }else{
+                tbl_shop::where('OwnerID', $ownerId)->decrement('RemainingLoad');
+            }
+            
+        }
                   
 
         tbl_booking::create([
             'CustomerLoad' => $request['load'],
-            'LoadCost' => $request['load'] * 10,
+            'LoadCost' => $request['loadcost'],
             'Schedule' => $request['sched'],
             'DateIssued' => Carbon::now(),
             'CustomerID' => $request['customerId'],
@@ -1461,27 +1563,129 @@ class ownerShopController extends Controller
     }
 
     public function booking_status(Request $request, $id){
-        $booking = tbl_booking::find($id);
+        $user = Auth::user(); 
+    $userContact = $user->contact;
 
-        if(!$booking){
+    $ownerId = tbl_owner::where('OwnerContactNumber', $userContact)
+                        ->pluck('OwnerID');
+
+    $shopId = tbl_shop::where('OwnerID', $ownerId)
+                      ->value('ShopID');
+
+    $machineId = tbl_shop::where('ShopID', $shopId)
+        ->value('ShopMachineID');                  
+    
+    $washer = tbl_shop_machine::where('ShopMachineID', $machineId);
+    $washerQty = $washer->value('WasherQty');
+
+    $inv = tbl_inventory::where('ShopID', $shopId)->get();
+
+    $booking = tbl_booking::find($id);
+
+    if($request['stat'] != 1){
+        $booking->delete();
+
+        tbl_shop::where('ShopID', $shopId)->increment('RemainingLoad');
+
+        return response([
+            'message' => 'Booking has been cancelled'
+        ]);
+    }
+
+    if($inv->isEmpty()){
+        return response([
+            'message' => 'No Inventory setup yet'
+        ], 409);
+    }
+
+
+    
+    if ($washerQty == 0) {
+        return response(['message' => 'All washing machines are currently occupied'],409);
+    }
+
+    $inventories = DB::table('tbl_inventories')
+        ->where('IsUse', '1')
+        ->where('ShopID', $shopId)
+        ->where('deleted_at', null)
+        ->get();
+
+        if ($inventories->isEmpty()) {
+            
             return response([
-                'message'=> 'not found'
-            ]);
+                'message' => 'No inventory set to use.'
+            ], 409);
         }
 
-        if($request['stat'] == '1'){
-            $booking->update([
-                'Status' => '1'
-            ]);
-            return response([
-                'message' => 'Request has been accepted'
-            ]);
-        }else{
-            $booking->delete();
-            return response([
-                'message' => 'Request has been canceled'
-            ]);
+    
+
+    if (!$booking) {
+        return response(['message' => 'Walk-in not found']);
+    }
+
+    // Validation: First pass to check if all items are sufficient
+    foreach ($inventories as $inventory) {
+        $itemName = $inventory->ItemName;
+        $volumeUse = $inventory->VolumeUse;
+        $remainingVolume = $inventory->RemainingVolume;
+        $itemQty = $inventory->ItemQty;
+
+        Log::info("Validating item: $itemName, Qty: $itemQty, RemainingVolume: $remainingVolume, VolumeUse: $volumeUse");
+
+        
+        if ($itemQty > 0 && $remainingVolume < $volumeUse) {
+            
+            DB::table('tbl_inventories')
+                ->where('InventoryID', $inventory->InventoryID)
+                ->decrement('ItemQty');
+
+            
+            DB::table('tbl_inventories')
+                ->where('InventoryID', $inventory->InventoryID)
+                ->increment('RemainingVolume', $inventory->ItemVolume);
+
+            
+            $remainingVolume = $remainingVolume + $inventory->ItemVolume;
+
+            DB::table('tbl_inventories')
+                ->where('InventoryID', $inventory->InventoryID)
+                ->decrement('RemainingVolume', $inventory->VolumeUse);
         }
+
+        
+        
+        if ($remainingVolume < $volumeUse) {
+            return response(['message' => "$itemName still has insufficient volume for the laundry request."], 409);
+        }
+    }
+
+    
+    foreach ($inventories as $inventory) {
+        $itemName = $inventory->ItemName;
+        $volumeUse = $inventory->VolumeUse;
+        $itemVolume = $inventory->ItemVolume;
+        $remainingVolume = $inventory->RemainingVolume;
+        $inventoryId = $inventory->InventoryID;
+
+        Log::info("Processing item: $itemName, Qty: $itemQty, RemainingVolume: $remainingVolume, VolumeUse: $volumeUse");
+
+        if ($request['stat'] == '1') {
+            if ($remainingVolume >= $volumeUse) {
+               
+                DB::table('tbl_inventories')
+                    ->where('InventoryID', $inventoryId)
+                    ->decrement('RemainingVolume', $volumeUse);
+
+                $booking->update(['Status' => '1']);
+            }
+        }
+    }
+
+    
+    $washer->decrement('WasherQty');
+
+    
+    return response(['message' => 'Laundry request has been accepted']);
     }
 
     public function wash_display(){
@@ -1641,10 +1845,10 @@ class ownerShopController extends Controller
         $userContact = $user->contact;
 
         $ownerId = tbl_owner::where('OwnerContactNumber', $userContact)
-                            ->pluck('OwnerID');
+                            ->value('OwnerID');
 
         $shopId = tbl_shop::where('OwnerID', $ownerId)
-                          ->pluck('ShopID');
+                          ->value('ShopID');
 
         $now = Carbon::today()->format('Y-m-d');
         $today = Carbon::now()->toDateString();
@@ -1656,16 +1860,16 @@ class ownerShopController extends Controller
              DB::raw("DATE_FORMAT(tbl_bookings.Schedule, '%Y-%m-%d') as Schedule"),
             )
         ->where('tbl_bookings.ShopID', $shopId)
-        ->where('tbl_bookings.Status', '5')
         ->whereDate('tbl_bookings.Schedule', $now)
+        ->where('tbl_bookings.Status', ['5', '6'])
         ->get();
 
          $walkin = DB::table('tbl_walkins')
         ->join('tbl_laundry_services', 'tbl_walkins.ServiceID', 'tbl_laundry_services.ServiceID')
         ->select('*', DB::raw("DATE_FORMAT(tbl_walkins.DateIssued, '%Y-%m-%d') as DateIssued"))
         ->where('tbl_walkins.ShopID', $shopId)
-        ->where('tbl_walkins.Status', '5')
         ->where(DB::raw("DATE_FORMAT(tbl_walkins.DateIssued, '%Y-%m-%d')"), $today)
+        ->where('tbl_walkins.Status', ['5', '6'])
         ->get();
 
         return response([

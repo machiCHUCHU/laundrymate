@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\tbl_notif;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -35,24 +36,24 @@ class BookingUpdateCommand extends Command
     ->where('tbl_bookings.Status', '>', '0')
     ->where(DB::raw("DATE_FORMAT(tbl_bookings.Schedule, '%Y-%m-%d')"), $today)
     ->where('tbl_bookings.deleted_at', null)
-    ->select('tbl_bookings.BookingID', 'tbl_customers.CustomerContactNumber', 'tbl_bookings.updated_at', 
+    ->select('tbl_bookings.BookingID', 'tbl_bookings.CustomerID', 'tbl_customers.CustomerContactNumber', 'tbl_bookings.updated_at', 
     'tbl_bookings.Status', 'tbl_shop_machines.WasherTime', 'tbl_shop_machines.DryerTime', 'tbl_shop_machines.FoldingTime', 
-    'tbl_shops.ShopID', 'tbl_shop_machines.WasherQty', 'tbl_shop_machines.DryerQty', 'tbl_shop_machines.ShopMachineID')
+    'tbl_shops.ShopID', 'tbl_shop_machines.WasherQty', 'tbl_shop_machines.DryerQty', 'tbl_shop_machines.ShopMachineID', 'tbl_shops.ShopName')
     ->get();
 
         foreach ($bookings as $booking) {
             $issuedTime = Carbon::parse($booking->updated_at);
 
-            // Calculate the time thresholds for each status update based on the machine set of the specific shop
+            
             $timeThresholds = [
-                2 => $booking->WasherTime,  // Status 2 after washing
-                3 => $booking->DryerTime, // Status 3 after drying
-                4 => $booking->FoldingTime // Status 4 after folding
+                2 => $booking->WasherTime,  
+                3 => $booking->DryerTime, 
+                4 => $booking->FoldingTime 
             ];
 
             $currentStatus = $booking->Status;
 
-            // Check if the current time exceeds the threshold for the next status
+            
             if ($currentStatus < 4 && Carbon::now() >= $issuedTime->addMinutes($timeThresholds[$currentStatus + 1])) {
                 DB::table('tbl_bookings')
                     ->where('BookingID', $booking->BookingID)
@@ -60,7 +61,7 @@ class BookingUpdateCommand extends Command
                         'Status' => (string)($currentStatus + 1),
                         'updated_at' => Carbon::now()
                     ]);
-                    $this->info("Walk-in ID {$booking->BookingID} at Shop ID {$booking->ShopID} status updated to " . ($currentStatus + 1));
+                    // $this->info("Walk-in ID {$booking->BookingID} at Shop ID {$booking->ShopID} status updated to " . ($currentStatus + 1));
 
                     if($currentStatus == 1){
                         DB::table('tbl_shop_machines')
@@ -78,6 +79,13 @@ class BookingUpdateCommand extends Command
                     }
 
                     if($currentStatus == 3){
+                        tbl_notif::create([
+                            'CustomerID' => $booking->CustomerID,
+                            'BookingID' => $booking->BookingID,
+                            'Title' => 'Laundry is Ready for Pick-up',
+                            'Message' => 'Good day! Your laundry from '.$booking->ShopName.' is ready for pick-up.'
+                        ]);
+
                         $apiKey = env('SEMAPHORE_API_KEY');
                     
                     $ch = curl_init();

@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\delete_picture;
+use App\Models\tbl_inventory;
+use App\Models\tbl_owner;
 use App\Models\tbl_shop;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use App\Models\tbl_shop_machine;
 use App\Models\tbl_booking;
 use Carbon\Carbon;
@@ -276,24 +279,27 @@ return response([
     }
 
     public function test_data(){
-        $today = Carbon::now()->toDateString();
-        $bookings = DB::table('tbl_bookings')
-            ->join('tbl_shops', 'tbl_bookings.ShopID', '=', 'tbl_shops.ShopID')
-            ->join('tbl_shop_machines', 'tbl_shops.ShopMachineID', '=', 'tbl_shop_machines.ShopMachineID')
-            ->join('tbl_customers', 'tbl_bookings.CustomerID', 'tbl_customers.CustomerID')
-            ->where('tbl_bookings.Status', '>', '0')
-            ->where(DB::raw("DATE_FORMAT(tbl_bookings.Schedule, '%Y-%m-%d')"), $today)
-            ->where('tbl_bookings.deleted_at', null)
-            ->select('tbl_bookings.BookingID', 'tbl_customers.ContactNumber', 'tbl_bookings.updated_at', 
-            'tbl_bookings.Status', 'tbl_shop_machines.WasherTime', 'tbl_shop_machines.DryerTime', 'tbl_shop_machines.FoldingTime', 
-            'tbl_shops.ShopID', 'tbl_shop_machines.WasherQty', 'tbl_shop_machines.DryerQty')
-            ->get();
+        $user = Auth::user();
+        $userContact = $user->contact;
 
+        $ownerId = tbl_owner::where('OwnerContactNumber', $userContact)->value('OwnerID');
+
+        $shopId = tbl_shop::where('OwnerID', $ownerId)->value('ShopID');
+
+        $today = Carbon::today();
+
+        // Group by date and count rows for each day from today onwards
+        $rowsByDate = DB::table('tbl_bookings')
+        ->select('ShopID', DB::raw('COUNT(BookingID) as bookings'))
+        ->whereDate('Schedule', $today)
+        ->groupBy('ShopID')
+        ->get();
+
+
+        
+        return response([
+            'message' => $rowsByDate
+        ]);
             
-
-            return response(
-                $bookings,
-                
-            );
     }
 }
