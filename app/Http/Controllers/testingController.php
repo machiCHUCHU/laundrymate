@@ -13,6 +13,7 @@ use App\Models\tbl_shop_machine;
 use App\Models\tbl_booking;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Constraint\IsEmpty;
 class testingController extends Controller
@@ -302,4 +303,18 @@ return response([
         ]);
             
     }
+
+    // Controller 1
+public function setSession() {
+    Session::put('testkey', 'testvalue');
+    Session::save();
+    return response(['message' => 'Session set']);
+}
+
+// Controller 2
+public function getSession() {
+    $value = Session::get('testkey');
+    return response(['session_value' => $value]);
+}
+
 }

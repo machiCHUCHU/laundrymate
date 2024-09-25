@@ -17,6 +17,7 @@ use App\Http\Controllers\BookingController;
 use App\Http\Controllers\RatingController;
 use App\Http\Controllers\ShopServiceController;
 use App\Http\Controllers\validationController;
+use Illuminate\Session\Middleware\StartSession;
 
 // Route::post('/register/customer', [RegController::class, 'customer_register']); //SECOND CHECKED!!
 // Route::post('/register/owner', [RegController::class, 'owner_register']); //SECOND CHECKED!!
@@ -24,7 +25,14 @@ Route::post('/registration', [RegController::class, 'registration']);
 Route::post('/login', [authController::class, 'login']);//SECOND CHECKED!!
 Route::post('/shop-setup', [RegController::class, 'owner_shop_info'])->middleware('auth:sanctum');  //SECOND-CHECKED!!
 Route::get('/shop-code/{id}', [ownerShopController::class, 'shop_code_display']); //SECOND CHECKED!!
-Route::post('/verification/{number}', [RegController::class, 'sms_otp']);
+
+Route::middleware([StartSession::class])->group(function () {
+    Route::post('/verification', [RegController::class, 'sms_otp']);
+    Route::post('/verification/otp', [RegController::class, 'verify_otp']);
+});
+
+Route::post('/change-password', [RegController::class,'change_password']);
+
 
 Route::post('/shop-inventory/add', [RegController::class, 'inventory'])->middleware('auth:sanctum'); //SECOND CHECKED!!
 Route::get('/shop-added-customer', [ownerShopController::class, 'added_shop_display'])->middleware('auth:sanctum'); //SECOND CHECKED!!
@@ -98,7 +106,10 @@ Route::post('/picture', [testingController::class, 'picture']);
 Route::get('/images/{id}', [testingController::class, 'getImage']);
 Route::post('/sms', [testingController::class, 'send_sms']);
 
-Route::get('/test/data', [testingController::class, 'test_data'])->middleware('auth:sanctum');
+Route::middleware([StartSession::class])->group(function () {
+    Route::get('/set-session', [testingController::class, 'setSession']);
+    Route::get('/get-session', [testingController::class, 'getSession']);
+});
 
 
 

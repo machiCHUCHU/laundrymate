@@ -104,6 +104,7 @@ class CustomerController extends Controller
         $ratings = DB::table('tbl_ratings')
         ->join('tbl_customers', 'tbl_ratings.CustomerID', 'tbl_customers.CustomerID')
         ->where('tbl_ratings.ShopID', $request['shopid'])
+        ->orderBy('tbl_ratings.RatingID', 'desc')
         ->get();
 
         $ratingSum = tbl_rating::where('ShopID', $request['shopid'])

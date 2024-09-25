@@ -37,6 +37,7 @@ class BookingDeduct extends Command
         $booking = DB::table('tbl_bookings')
         ->select('ShopID', DB::raw('COUNT(BookingID) as bookcount'))
         ->whereDate('Schedule', $dateToday)
+        ->where('deleted_at',null)
         ->get();
 
         foreach($booking as $book){

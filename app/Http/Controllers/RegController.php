@@ -86,9 +86,13 @@ class RegController extends Controller
         ]);
         $imageBase64 = $request->input('image');
 
-        $image = base64_decode($imageBase64);
+        if(empty($imageBase64)){
+            $imageName = null;
+        }else{
+            $image = base64_decode($imageBase64);
         $imageName = uniqid() . '.jpg';
         Storage::disk('public')->put('images/' . $imageName, $image);
+        }
 
         if($credentials['usertype'] == 'customer'){
             tbl_customer::create([
@@ -317,20 +321,24 @@ class RegController extends Controller
         ]);
     }
 
-    public function sms_otp($number){
+    public function sms_otp(Request $request){
         $apiKey = env('SEMAPHORE_API_KEY');
-        if(!Session::has('randomNumber')){
-            Session::put('randomNumber', rand(1000,9999));
+        if(!Session::has('otpcode')|| now()->greaterThan(Session::get('expiration'))){
+            Session::put('otpcode', rand(1000,9999));
+            Session::put('expiration', now()->addMinutes(5));
+            Session::save();
+        }else{
+            Session::get('otpcode');
         }
 
-        $otpCode = Session::get('randomNumber');
-        $message = 'DO NOT SHARE YOUR OTP. Your OTP is '.$otpCode;
+        $otpCode = Session::get('otpcode');
+        $message = 'Your OTP is '.$otpCode.'. Please do not share this with anyone. This will be valid for 5 minutes';
 
         $ch = curl_init();
 
         $parameters = array(
     'apikey' => $apiKey,
-    'number' => $number,
+    'number' => $request['contact'],
     'message' => $message,
     'sendername' => 'LAUNDRYMATE'
 );
@@ -346,11 +354,40 @@ curl_close ($ch);
 
 
 return response([
-    'code' => $otpCode
+    'message' => 'OTP has been sent'
 ]);
 
     
         
     }
     
+    public function verify_otp(Request $request){
+        if(!Session::has('otpcode') || now()->greaterThan(Session::get('expiration'))){
+            return response([
+                'message' => 'Please request another one.'
+            ],409);
+        }
+
+        $getOtp = Session::get('otpcode');
+
+        if($request['otpinput'] == $getOtp){
+            Session::forget('otpcode');
+            Session::forget('expiration');
+            return response([
+                'message' => 'Registered Successfully'
+            ]);
+        }else{
+            return response([
+                'message' => 'Invalid OTP. Please try again.'
+            ],409);
+        }
+    }
+
+    public function change_password(Request $request){
+        User::where('contact', $request['contact'])->update(['password' => bcrypt($request['password'])]);
+
+        return response([
+            'message' => 'Password has been updated'
+        ]);
+    }
 }
