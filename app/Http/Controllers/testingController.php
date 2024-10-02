@@ -280,26 +280,22 @@ return response([
     }
 
     public function test_data(){
-        $user = Auth::user();
-        $userContact = $user->contact;
-
-        $ownerId = tbl_owner::where('OwnerContactNumber', $userContact)->value('OwnerID');
-
-        $shopId = tbl_shop::where('OwnerID', $ownerId)->value('ShopID');
-
-        $today = Carbon::today();
-
-        // Group by date and count rows for each day from today onwards
-        $rowsByDate = DB::table('tbl_bookings')
-        ->select('ShopID', DB::raw('COUNT(BookingID) as bookings'))
-        ->whereDate('Schedule', $today)
-        ->groupBy('ShopID')
+        $today = Carbon::now()->toDateString();
+        $bookings = DB::table('tbl_bookings')
+        ->join('tbl_shops', 'tbl_bookings.ShopID', '=', 'tbl_shops.ShopID')
+        ->join('tbl_shop_machines', 'tbl_shops.ShopMachineID', '=', 'tbl_shop_machines.ShopMachineID')
+        ->join('tbl_customers', 'tbl_bookings.CustomerID', 'tbl_customers.CustomerID')
+        ->where('tbl_bookings.deleted_at', null)
+        ->select('tbl_bookings.BookingID', 'tbl_bookings.CustomerID', 'tbl_customers.CustomerContactNumber', 'tbl_bookings.updated_at', 
+        'tbl_bookings.Status', 'tbl_shop_machines.WasherTime', 'tbl_shop_machines.DryerTime', 'tbl_shop_machines.FoldingTime', 
+        'tbl_shops.ShopID', 'tbl_shop_machines.WasherQty', 'tbl_shop_machines.DryerQty', 'tbl_shop_machines.ShopMachineID', 'tbl_shops.ShopName',
+        'tbl_bookings.Schedule')
         ->get();
 
 
         
         return response([
-            'message' => $rowsByDate
+            'message' => $bookings
         ]);
             
     }

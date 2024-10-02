@@ -9,17 +9,15 @@ use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
-
+use App\Models\User;
 class DashboardUpdated
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    /**
-     * Create a new event instance.
-     */
-    public function __construct()
+    public $dashboardData;
+    public function __construct($dashboardData)
     {
-        //
+        $this->dashboardData = $dashboardData;
     }
 
     /**
@@ -29,8 +27,13 @@ class DashboardUpdated
      */
     public function broadcastOn(): array
     {
+        return [new Channel('dashboard')];
+    }
+
+    public function broadcastWith(): array
+    {
         return [
-            new PrivateChannel('channel-name'),
+            'data' => $this->dashboardData // Correctly formatted payload
         ];
     }
 }

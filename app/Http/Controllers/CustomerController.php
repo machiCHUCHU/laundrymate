@@ -267,7 +267,7 @@ class CustomerController extends Controller
                 'PaymentStatus' => 'paid'
             ]);
 
-            tbl_notif::update([
+            $notif->update([
                 'Title' => 'Laundry Service Completed',
                 'Message' => 'Your Laundry Service from '.$shopName.'is Completed.',
                 'is_read' => '0'

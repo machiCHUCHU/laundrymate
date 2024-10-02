@@ -28,34 +28,98 @@ class ShopUpdateCommand extends Command
     public function handle()
     {
         $shops = tbl_shop::all();
+        $today = Carbon::now();
+        $isWeekend = $today->isWeekend();
+        $isWeekday = $today->isWeekday();
+
 
         foreach ($shops as $shop) {
             $shopTime = $shop->WorkHour;
+            $shopDays = $shop->WorkDay;
         
             [$startTimeString, $endTimeString] = explode(" - ", $shopTime);
         
             $startTime = Carbon::createFromFormat("h:i A", $startTimeString);
             $endTime = Carbon::createFromFormat("h:i A", $endTimeString);
         
-            
-
             $currentTime = Carbon::now()->format('h:i A');
 
-            if($startTime->format('h:i A') == $currentTime){
-                $shop->update([
-                    'ShopStatus' => 'open'
-                ]);
+            if($shopDays == 'weekend' && $isWeekend){
+                if($startTime->format('h:i A') == $currentTime){
+                    $shop->update([
+                        'ShopStatus' => 'open'
+                    ]);
+                    
+                }
 
+                if($currentTime == $endTime->format('h:i A')){
+                    $shop->update([
+                        'ShopStatus' => 'closed'
+                    ]);
+                }
+
+                if($today->between($startTime,$endTime)){
+                    if($shop->RemainingLoad == 0){
+                        $shop->update([
+                            'ShopStatus' => 'full'
+                            ]);
+                    }
+
+                    if($shop->RemainingLoad > 0){
+                        $shop->update([
+                            'ShopStatus' => 'open'
+                            ]);
+                    }
+                }
+            }else if($shopDays == 'weekend' && !$isWeekend){
+                $shop->update([
+                    'ShopStatus' => 'closed'
+                ]);
+            }
+
+            if($shopDays == 'weekdays' && $isWeekday){
+                if($startTime->format('h:i A') == $currentTime){
+                    $shop->update([
+                        'ShopStatus' => 'open'
+                    ]);
+                    $this->info('adfadfa');
+                }
+
+                if($currentTime == $endTime->format('h:i A')){
+                    $shop->update([
+                        'ShopStatus' => 'closed'
+                    ]);
+                }
+
+                if($today->between($startTime,$endTime)){
+                    if($shop->RemainingLoad == 0){
+                        $shop->update([
+                            'ShopStatus' => 'full'
+                            ]);
+                    }
+
+                    if($shop->RemainingLoad > 0){
+                        $shop->update([
+                            'ShopStatus' => 'open'
+                            ]);
+                    }
+                }
+            }else if($shopDays == 'weekdays' && !$isWeekday){
+                $shop->update([
+                    'ShopStatus' => 'closed'
+                ]);
+            }
+
+
+            
+
+            
+            if($today->isMidnight()){
                 $shop->update([
                     'RemainingLoad' => $shop->MaxLoad
                 ]);
             }
 
-            if($currentTime == $endTime->format('h:i A')){
-                $shop->update([
-                    'ShopStatus' => 'closed'
-                ]);
-            }
            
         }
     }

@@ -18,6 +18,8 @@ use App\Http\Controllers\RatingController;
 use App\Http\Controllers\ShopServiceController;
 use App\Http\Controllers\validationController;
 use Illuminate\Session\Middleware\StartSession;
+use App\Events\DashboardUpdated;
+use App\Http\Controllers\ChartController;
 
 // Route::post('/register/customer', [RegController::class, 'customer_register']); //SECOND CHECKED!!
 // Route::post('/register/owner', [RegController::class, 'owner_register']); //SECOND CHECKED!!
@@ -71,7 +73,6 @@ Route::get('/rating', [ownerShopController::class, 'booking_rating_display'])->m
 Route::get('/booking/weekly', [ownerShopController::class, 'booking_weekly_display'])->middleware('auth:sanctum'); //INITIAL CHECKED
 Route::get('/booking/monthly', [ownerShopController::class, 'booking_monthly_display'])->middleware('auth:sanctum'); //INITIAL CHECKED
 Route::get('/sales/weekly', [ownerShopController::class, 'sales_weekly_display'])->middleware('auth:sanctum');
-Route::get('/sales/monthly', [ownerShopController::class, 'sales_monthly_display'])->middleware('auth:sanctum');
 Route::get('/home', [ownerShopController::class, 'home_display'])->middleware('auth:sanctum');
 Route::get('/appbar', [ownerShopController::class, 'appbar_display'])->middleware('auth:sanctum');
 
@@ -105,6 +106,8 @@ Route::post('/check/number', [validationController::class, 'is_number_exist']);
 Route::post('/picture', [testingController::class, 'picture']);
 Route::get('/images/{id}', [testingController::class, 'getImage']);
 Route::post('/sms', [testingController::class, 'send_sms']);
+
+Route::get('/test/data', [testingController::class, 'test_data']);
 
 Route::middleware([StartSession::class])->group(function () {
     Route::get('/set-session', [testingController::class, 'setSession']);
@@ -144,3 +147,19 @@ Route::post('/laundry/notifications/read/{notifid}', [CustomerController::class,
 Route::get('/customer/profile', [CustomerController::class, 'customer_profile'])->middleware('auth:sanctum');
 Route::get('/customer/profile/update', [CustomerController::class, 'customer_profile'])->middleware('auth:sanctum');
 Route::put('/customer/profile/update/{id}', [CustomerController::class, 'customer_user_update'])->middleware('auth:sanctum');
+
+Route::post('/trigger-broadcast', function () {
+    // The required data to pass to the event
+    $data = [
+        'Peter' => '32'
+    ];
+    // Dispatch the event with the data
+    event(new DashboardUpdated($data));
+
+    return response()->json(['message' => 'Broadcast event dispatched']);
+});
+
+
+Route::get('/donut',[ChartController::class, 'donut_chart'])->middleware('auth:sanctum');
+Route::get('/inventory-chart',[ChartController::class, 'inventory_chart'])->middleware('auth:sanctum');
+Route::get('/sales/monthly',[ChartController::class, 'sales_monthly'])->middleware('auth:sanctum');

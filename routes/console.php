@@ -9,7 +9,7 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote')->hourly();
 
-Schedule::command('app:shop-update-command')->dailyAt('00:00')->runInBackground()->withoutOverlapping();
+Schedule::command('app:shop-update-command')->everyFiveSeconds();
 Schedule::command('app:booking-update-command')->everyFiveSeconds();
 Schedule::command('app:service-update-command')->everyFiveSeconds();
 Schedule::command('app:booking-deduct')->everyFiveSeconds();

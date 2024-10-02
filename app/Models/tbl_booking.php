@@ -26,23 +26,5 @@ class tbl_booking extends Model
         'PaymentStatus'
     ];
 
-    public function shop(){
-        return $this->belongsTo(tbl_shop::class, 'ShopID');
-    }
-
-    public function customer(){
-        return $this->belongsTo(tbl_customer::class, 'CustomerID');
-    }
-
-    public function laundryPreference(){
-        return $this->belongsTo(tbl_laundry_preference::class, 'LaundryPreferenceID');
-    }
-
-    public function billing(){
-        return $this->hasOne(tbl_billing::class, 'BookingID');
-    }
-
-    public function report(){
-        return $this->hasOne(tbl_report::class, 'BookingID');
-    }
+   
 }

@@ -21,11 +21,5 @@ class tbl_laundry_service extends Model
         'ShopID'
     ];
 
-    public function shop(){
-        return $this->hasMany(tbl_shop::class, 'ShopID');
-    }
-
-    public function shopServices(){
-        return $this->hasMany(tbl_shop_service::class, 'LaundryServiceID');
-    }
+    
 }

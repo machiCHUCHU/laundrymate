@@ -39,7 +39,7 @@ class ServiceUpdateCommand extends Command
             ->where('tbl_walkins.deleted_at', null)
             ->select('tbl_walkins.WalkinID', 'tbl_walkins.ContactNumber', 'tbl_walkins.updated_at', 
             'tbl_walkins.Status', 'tbl_shop_machines.WasherTime', 'tbl_shop_machines.DryerTime', 'tbl_shop_machines.FoldingTime', 
-            'tbl_shops.ShopID', 'tbl_shop_machines.WasherQty', 'tbl_shop_machines.DryerQty')
+            'tbl_shops.ShopID', 'tbl_shop_machines.WasherQty', 'tbl_shop_machines.DryerQty','tbl_shop_machines.ShopMachineID')
             ->get();
 
         foreach ($walkins as $walkin) {

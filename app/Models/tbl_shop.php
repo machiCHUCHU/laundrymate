@@ -27,25 +27,5 @@ class tbl_shop extends Model
         'OwnerID'
     ];
 
-    public function owner()
-    {
-        return $this->hasOne(tbl_owner::class, 'OwnerID');
-    }
-
-    public function inventory(){
-        return $this->hasMany(tbl_inventory::class, 'ShopID');
-    }
-
-    public function bookings(){
-        return $this->hasMany(tbl_booking::class, 'ShopID');
-    }
-
-    public function shopServices(){
-        return $this->hasMany(tbl_shop_service::class, 'ShopID');
-    }
-
-    public function shopMachines(){
-        return $this->hasMany(tbl_shop_machine::class, 'ShopID');
-    }
-
+    
 }

@@ -22,8 +22,6 @@ class tbl_customer extends Model
         'UserID'
     ];
 
-    public function bookings(){
-        return $this->hasMany(tbl_booking::class, 'CustomerID');
-    }
+
     
 }

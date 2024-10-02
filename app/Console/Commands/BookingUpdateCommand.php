@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\tbl_booking;
 use App\Models\tbl_notif;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -33,12 +34,12 @@ class BookingUpdateCommand extends Command
     ->join('tbl_shops', 'tbl_bookings.ShopID', '=', 'tbl_shops.ShopID')
     ->join('tbl_shop_machines', 'tbl_shops.ShopMachineID', '=', 'tbl_shop_machines.ShopMachineID')
     ->join('tbl_customers', 'tbl_bookings.CustomerID', 'tbl_customers.CustomerID')
-    ->where('tbl_bookings.Status', '>', '0')
-    ->where(DB::raw("DATE_FORMAT(tbl_bookings.Schedule, '%Y-%m-%d')"), $today)
+    ->where('tbl_bookings.Status', '0')
     ->where('tbl_bookings.deleted_at', null)
     ->select('tbl_bookings.BookingID', 'tbl_bookings.CustomerID', 'tbl_customers.CustomerContactNumber', 'tbl_bookings.updated_at', 
     'tbl_bookings.Status', 'tbl_shop_machines.WasherTime', 'tbl_shop_machines.DryerTime', 'tbl_shop_machines.FoldingTime', 
-    'tbl_shops.ShopID', 'tbl_shop_machines.WasherQty', 'tbl_shop_machines.DryerQty', 'tbl_shop_machines.ShopMachineID', 'tbl_shops.ShopName')
+    'tbl_shops.ShopID', 'tbl_shop_machines.WasherQty', 'tbl_shop_machines.DryerQty', 'tbl_shop_machines.ShopMachineID', 'tbl_shops.ShopName',
+    'tbl_bookings.Schedule')
     ->get();
 
         foreach ($bookings as $booking) {
@@ -46,9 +47,9 @@ class BookingUpdateCommand extends Command
 
             
             $timeThresholds = [
-                2 => $booking->WasherTime,  
-                3 => $booking->DryerTime, 
-                4 => $booking->FoldingTime 
+                1 => $booking->WasherTime,  
+                2 => $booking->DryerTime, 
+                3 => $booking->FoldingTime 
             ];
 
             $currentStatus = $booking->Status;
@@ -108,6 +109,15 @@ class BookingUpdateCommand extends Command
                     }
             }
 
+            $bookDate = Carbon::parse($booking->Schedule);
+
+            if($booking->Status == '0'){
+                $this->info('sdfdsf');
+                if($bookDate->isPast()){
+                    tbl_booking::where('BookingID',$booking->BookingID)->delete();
+                    $this->info('afadf');
+                }
+            }
             
                 
             }

@@ -166,10 +166,15 @@ class RegController extends Controller
 
                             $imageBase64 = $request['ShopImage'];
 
-
-        $image = base64_decode($imageBase64);
+                            if(empty($imageBase64)){
+                                $imageName = null;
+                            }else{
+                                $image = base64_decode($imageBase64);
         $imageName = uniqid() . '.jpg';
         Storage::disk('public')->put('images/' . $imageName, $image);
+                            }
+
+        
 
         $machine = $request->validate([
             'WasherQty' => 'required|integer',
