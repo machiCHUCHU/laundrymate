@@ -66,9 +66,19 @@ class CustomerController extends Controller
                     'message'=> 'Request has been sent'
                 ],200);
             }else{
-                return response([
-                    'message' => 'Shop already been listed'
-                ],409);
+               if($addShop->IsValued == '2'){
+                  tbl_added_shop::where('ShopID', $shopId)
+                    ->where('CustomerID', $customerId)
+                    ->update(['IsValued' => '0']);
+                    
+                    return response([
+                    'message'=> 'Request has been sent'
+                ],200);
+               }else{
+                   return response([
+                       'message' => 'Shop has been listed'
+                       ],409);
+               }
             }
               
         }
@@ -475,7 +485,9 @@ class CustomerController extends Controller
        }else{
         $image = base64_decode($imageData);
     $imageName = uniqid() . '.jpg';
-    Storage::disk('public')->put('images/' . $imageName, $image);
+    $directory = public_path('images');
+        $imagePath = $directory . '/' . $imageName;
+        file_put_contents($imagePath,$image);
        }
         
     } else {
@@ -526,7 +538,7 @@ public function customer_user_update(Request $request, $id){
            }else{
             $image = base64_decode($imageData);
         $imageName = uniqid() . '.jpg';
-        Storage::disk('public')->put('images/' . $imageName, $image);
+        file_put_contents($imageName,$image);
            }
             
         } else {

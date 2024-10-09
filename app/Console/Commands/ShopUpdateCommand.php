@@ -52,7 +52,7 @@ class ShopUpdateCommand extends Command
                     
                 }
 
-                if($currentTime == $endTime->format('h:i A')){
+                if($endTime->format('h:i A') == $currentTime){
                     $shop->update([
                         'ShopStatus' => 'closed'
                     ]);
@@ -109,12 +109,41 @@ class ShopUpdateCommand extends Command
                     'ShopStatus' => 'closed'
                 ]);
             }
+            
+            if($shopDays == 'weekly'){
+                if($startTime->format('h:i A') == $currentTime){
+                    $shop->update([
+                        'ShopStatus' => 'open'
+                    ]);
+                    $this->info('adfadfa');
+                }
+
+                if($currentTime == $endTime->format('h:i A')){
+                    $shop->update([
+                        'ShopStatus' => 'closed'
+                    ]);
+                }
+
+                if($today->between($startTime,$endTime)){
+                    if($shop->RemainingLoad == 0){
+                        $shop->update([
+                            'ShopStatus' => 'full'
+                            ]);
+                    }
+
+                    if($shop->RemainingLoad > 0){
+                        $shop->update([
+                            'ShopStatus' => 'open'
+                            ]);
+                    }
+                }
+            }
 
 
             
 
             
-            if($today->isMidnight()){
+            if($today->format('H:i') >= '00:00' && $today->format('H:i') <= '00:01'){
                 $shop->update([
                     'RemainingLoad' => $shop->MaxLoad
                 ]);

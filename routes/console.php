@@ -12,5 +12,5 @@ Artisan::command('inspire', function () {
 Schedule::command('app:shop-update-command')->everyFiveSeconds();
 Schedule::command('app:booking-update-command')->everyFiveSeconds();
 Schedule::command('app:service-update-command')->everyFiveSeconds();
-Schedule::command('app:booking-deduct')->everyFiveSeconds();
+Schedule::command('app:booking-deduct')->dailyAt('00:05');
 //use php artisan schedule:work for continuous background process

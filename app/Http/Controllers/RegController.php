@@ -91,7 +91,9 @@ class RegController extends Controller
         }else{
             $image = base64_decode($imageBase64);
         $imageName = uniqid() . '.jpg';
-        Storage::disk('public')->put('images/' . $imageName, $image);
+        $directory = public_path('images');
+        $imagePath = $directory . '/' . $imageName;
+        file_put_contents($imagePath,$image);
         }
 
         if($credentials['usertype'] == 'customer'){
@@ -171,7 +173,9 @@ class RegController extends Controller
                             }else{
                                 $image = base64_decode($imageBase64);
         $imageName = uniqid() . '.jpg';
-        Storage::disk('public')->put('images/' . $imageName, $image);
+        $directory = public_path('images');
+        $imagePath = $directory . '/' . $imageName;
+        file_put_contents($imagePath,$image);
                             }
 
         
@@ -201,7 +205,6 @@ class RegController extends Controller
 
         $shop = $request->validate([
             'ShopName' => 'required|string',
-            'ShopImage' => 'nullable',
             'ShopAddress' => 'required|string',
             'MaxLoad' => 'required|string',
             'WorkDay' => 'required|string',

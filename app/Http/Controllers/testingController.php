@@ -280,23 +280,20 @@ return response([
     }
 
     public function test_data(){
-        $today = Carbon::now()->toDateString();
-        $bookings = DB::table('tbl_bookings')
-        ->join('tbl_shops', 'tbl_bookings.ShopID', '=', 'tbl_shops.ShopID')
-        ->join('tbl_shop_machines', 'tbl_shops.ShopMachineID', '=', 'tbl_shop_machines.ShopMachineID')
-        ->join('tbl_customers', 'tbl_bookings.CustomerID', 'tbl_customers.CustomerID')
-        ->where('tbl_bookings.deleted_at', null)
-        ->select('tbl_bookings.BookingID', 'tbl_bookings.CustomerID', 'tbl_customers.CustomerContactNumber', 'tbl_bookings.updated_at', 
-        'tbl_bookings.Status', 'tbl_shop_machines.WasherTime', 'tbl_shop_machines.DryerTime', 'tbl_shop_machines.FoldingTime', 
-        'tbl_shops.ShopID', 'tbl_shop_machines.WasherQty', 'tbl_shop_machines.DryerQty', 'tbl_shop_machines.ShopMachineID', 'tbl_shops.ShopName',
-        'tbl_bookings.Schedule')
-        ->get();
+        $today = Carbon::now();
+        if ($today->format('H:i') >= '00:00' && $today->format('H:i') < '00:01') {
+            return response([
+                'message' => 'goods'
+            ]);
+        } else {
+            return response([
+                'message' => 'luh'
+            ]);
+        }
 
 
         
-        return response([
-            'message' => $bookings
-        ]);
+        
             
     }
 
